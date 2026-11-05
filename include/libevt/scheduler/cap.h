@@ -20,7 +20,7 @@ typedef struct Cap
 Cap *cap_create(int slots, bool (*before_fn)(void *a, void *b, void *arg), void *before_arg);
 void cap_destroy(Cap *cap);
 
-void cap_submit(Cap *cap, Context *ctx);
+bool cap_submit(Cap *cap, Context *ctx);
 void cap_release(Cap *cap);
 size_t cap_drop(Cap *cap, bool (*match_fn)(void *scope, void *arg), void *arg);
 
@@ -32,8 +32,9 @@ Cap
   waits - it is not refused.  the consumer's only, as Own is.
 
 cap_submit
-  the work runs now if a slot is free (its context resolved, the slot its own), else it waits.  the context is cap's:
-  destroyed once it ran, or at cap_destroy / cap_drop if it never did.
+  the work runs now if a slot is free (its context resolved, the slot its own), else it waits.  true: the context is
+  cap's - destroyed once it ran, or at cap_destroy / cap_drop if it never did.  false: refused (no cap, no context, or
+  no memory to hold it waiting) - nothing ran, and the context is still the caller's.
 
 cap_release
   a slot frees: the first waiting one runs in it.  first: the one before every other by before_fn(a scope, another's

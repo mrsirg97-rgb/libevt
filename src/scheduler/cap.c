@@ -38,27 +38,25 @@ void cap_destroy(Cap *cap)
   free(cap);
 }
 
-void cap_submit(Cap *cap, Context *ctx)
+bool cap_submit(Cap *cap, Context *ctx)
 {
   if (!(cap && ctx))
-    return;
+    return false;
   if (cap->used < cap->slots)
   {
     cap_run(cap, ctx);
-    return;
+    return true;
   }
   if (cap->len == cap->capacity)
   {
     Context **w = realloc(cap->waiting, cap->capacity * 2 * sizeof *cap->waiting);
     if (!w)
-    {
-      context_destroy(ctx);
-      return;
-    }
+      return false;
     cap->waiting = w;
     cap->capacity *= 2;
   }
   cap->waiting[cap->len++] = ctx;
+  return true;
 }
 
 void cap_release(Cap *cap)
