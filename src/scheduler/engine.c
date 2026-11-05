@@ -68,7 +68,13 @@ uint64_t engine_add(Engine *engine, Context *ctx, int priority)
     return 0;
   }
 
-  queue_push(engine->q, evt);
+  if (!queue_push(engine->q, evt)) /* refused: the context is the caller's again, the event let go */
+  {
+    evt->ctx = NULL;
+    event_destroy(evt);
+    evt_mutex_unlock(&engine->mu);
+    return 0;
+  }
   evt_cond_signal(&engine->cv);
   evt_mutex_unlock(&engine->mu);
   return id;

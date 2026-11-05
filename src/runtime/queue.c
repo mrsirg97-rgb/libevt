@@ -1,3 +1,4 @@
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -21,14 +22,16 @@ static inline bool queue_has_evts(Queue *q)
   return q && q->len > 0;
 }
 
-static inline void queue_resize(Queue *q)
+/* room for one more (false: none - the push refused, never written past the end); a queue far under its capacity
+   shrinks */
+static inline bool queue_resize(Queue *q)
 {
   if (q->len == q->capacity)
   {
     size_t new_cap = q->capacity ? q->capacity * 2 : MIN_CAP;
     Event **evts = realloc(q->evts, new_cap * sizeof *q->evts);
     if (!evts)
-      return;
+      return false;
     q->evts = evts;
     q->capacity = new_cap;
   }
@@ -36,11 +39,10 @@ static inline void queue_resize(Queue *q)
   {
     size_t new_cap = (q->len * 3) / 2;
     Event **evts = realloc(q->evts, new_cap * sizeof *q->evts);
-    if (!evts)
-      return;
-    q->evts = evts;
-    q->capacity = new_cap;
+    if (evts)
+      q->evts = evts, q->capacity = new_cap;
   }
+  return true;
 }
 
 static inline void queue_swap_evts(Queue *q, size_t i, size_t j)
@@ -48,6 +50,8 @@ static inline void queue_swap_evts(Queue *q, size_t i, size_t j)
   Event *evt = q->evts[i];
   q->evts[i] = q->evts[j];
   q->evts[j] = evt;
+  q->evts[i]->index = i;
+  q->evts[j]->index = j;
 }
 
 static inline void queue_heapify_down(Queue *q, size_t index)
@@ -127,14 +131,15 @@ bool queue_view(Queue *q, Event **evts, size_t *evts_size)
   return true;
 }
 
-void queue_push(Queue *q, Event *evt)
+bool queue_push(Queue *q, Event *evt)
 {
-  if (!(q && q->evts && evt))
-    return;
-  queue_resize(q);
+  if (!(q && q->evts && evt) || !queue_resize(q))
+    return false;
   size_t index = q->len++;
   q->evts[index] = evt;
+  evt->index = index;
   queue_heapify_up(q, index);
+  return true;
 }
 
 void queue_pop(Queue *q, Event **evt)
@@ -146,14 +151,26 @@ void queue_pop(Queue *q, Event **evt)
     return;
   }
 
+  q->evts[0]->index = SIZE_MAX;
   if (evt)
     *evt = q->evts[0];
   q->len--;
   if (q->len > 0)
   {
     q->evts[0] = q->evts[q->len];
+    q->evts[0]->index = 0;
     queue_heapify_down(q, 0);
   }
+}
+
+bool queue_update(Queue *q, Event *evt, int priority)
+{
+  if (!(q && evt && evt->index < q->len && q->evts[evt->index] == evt))
+    return false;
+  evt->priority = priority;
+  queue_heapify_up(q, evt->index);
+  queue_heapify_down(q, evt->index);
+  return true;
 }
 
 Event *queue_peek(Queue *q)

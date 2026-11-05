@@ -1,3 +1,4 @@
+#include <stdint.h>
 #include <stdbool.h>
 #include <stdlib.h>
 
@@ -14,6 +15,7 @@ Event *event_create(uint64_t id, int priority, Context *ctx)
   evt->id = id;
   evt->priority = priority;
   evt->ctx = ctx;
+  evt->index = SIZE_MAX;
   if (!evt->ctx)
   {
     free(evt);
