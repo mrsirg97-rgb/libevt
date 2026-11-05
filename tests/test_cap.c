@@ -54,6 +54,16 @@ int main(void)
   cap_release(sjf);
   assert(n_ran == 5);
   cap_destroy(sjf);
-  printf("[test_cap] arrival order, a shortest-first order, ties and drop passed.\n");
+  /* a submit says whether cap took the work: refused, the context is still the caller's (a reader that must not lose
+     a read fails closed instead) */
+  Cap *one = cap_create(1, NULL, NULL);
+  Context *mine = context_create(&r[0], run_fn);
+  n_ran = 0;
+  assert(!cap_submit(NULL, mine) && n_ran == 0);
+  assert(!cap_submit(one, NULL));
+  assert(cap_submit(one, mine) && n_ran == 1);
+  assert(cap_submit(one, context_create(&r[1], run_fn)) && n_ran == 1);
+  cap_destroy(one);
+  printf("[test_cap] arrival order, a shortest-first order, ties, drop and a refused submit passed.\n");
   return 0;
 }
